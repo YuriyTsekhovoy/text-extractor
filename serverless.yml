@@ -6,6 +6,8 @@ frameworkVersion: '3'
 
 custom:
   tableName: 'users-table-${sls:stage}'
+  fileTableName: 'files-table-${sls:stage}'
+  bucketName: text-extractor-bucket
   wsgi:
     app: app.app
 
@@ -23,10 +25,19 @@ provider:
             - dynamodb:PutItem
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
+            - textract:StartDocumentTextDetection
+            - textract:GetDocumentTextDetectionStatus
+            - textract:GetDocumentTextDetectionResult
           Resource:
             - Fn::GetAtt: [ UsersTable, Arn ]
+            - Fn::GetAtt: [ FilesTable, Arn ]
+            - arn:aws:s3:::${self:custom.bucketName}
+            - arn:aws:textract:::job/*
+
+
   environment:
     USERS_TABLE: ${self:custom.tableName}
+    FILES_TABLE: ${self:custom.fileTableName}
 
 functions:
   api:
@@ -53,3 +64,20 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: ${self:custom.tableName}
+    FilesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          - AttributeName: fileId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: fileId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.fileTableName}
+    MyS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketName}
